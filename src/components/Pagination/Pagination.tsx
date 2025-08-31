@@ -2,16 +2,16 @@ import ReactPaginate, { type ReactPaginateProps } from 'react-paginate';
 import css from './Pagination.module.css';
 
 export interface PaginationProps {
-  pageCount: number;           // загальна кількість сторінок
-  currentPage: number;         // поточна сторінка (1-based)
-  onPageChange: (page: number) => void; // повертаємо 1-based
+  pageCount: number;           
+  currentPage: number;        
+  onPageChange: (page: number) => void; 
 }
 
 function Pagination({ pageCount, currentPage, onPageChange }: PaginationProps) {
   if (pageCount <= 1) return null;
 
   const handlePageChange: ReactPaginateProps['onPageChange'] = (e) => {
-    onPageChange(e.selected + 1); // react-paginate -> 0-based
+    onPageChange(e.selected + 1); 
   };
 
   return (
@@ -25,9 +25,8 @@ function Pagination({ pageCount, currentPage, onPageChange }: PaginationProps) {
         breakLabel="…"
         marginPagesDisplayed={1}
         pageRangeDisplayed={2}
-        // ⚠️ головне — ці два класи збігаються з твоїм CSS-модулем
-        containerClassName={css.pagination} // застосує .pagination до <ul>
-        activeClassName={css.active}        // застосує .active до <li>
+        containerClassName={css.pagination} 
+        activeClassName={css.active}        
         renderOnZeroPageCount={null}
       />
     </nav>

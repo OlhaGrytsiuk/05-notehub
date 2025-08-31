@@ -1,7 +1,7 @@
 import { Formik, Form } from 'formik';
 import * as Yup from 'yup';
-import type { NoteTag } from '../types/note';
-import type { CreateNotePayload } from '../services/noteService';
+import type { NoteTag } from '../../types/note';
+import type { CreateNotePayload } from '../../services/noteService';
 import css from './NoteForm.module.css';
 
 const TAGS: NoteTag[] = ['Todo', 'Work', 'Personal', 'Meeting', 'Shopping'];

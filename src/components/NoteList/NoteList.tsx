@@ -1,5 +1,5 @@
 import type React from 'react';
-import type { Note } from '../types/note';
+import type { Note } from '../../types/note';
 import css from './NoteList.module.css';
 
 export interface NoteListProps {

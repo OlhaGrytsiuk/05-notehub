@@ -5,7 +5,7 @@ import {
   QueryClientProvider,
   keepPreviousData, // ← додали
 } from '@tanstack/react-query';
-import App from './App/App';
+import App from './components/App/App';
 
 const queryClient = new QueryClient({
   defaultOptions: {

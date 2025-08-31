@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useDebounce } from 'use-debounce';
-import { createNote, deleteNote, fetchNotes } from '../services/noteService';
-import type { CreateNotePayload, FetchNotesResponse } from '../services/noteService';
-import type { Note } from '../types/note';
+import { createNote, deleteNote, fetchNotes } from '../../services/noteService';
+import type { CreateNotePayload, FetchNotesResponse } from '../../services/noteService';
+import type { Note } from '../../types/note';
 import NoteList from '../NoteList/NoteList';
 import Pagination from '../Pagination/Pagination';
 import SearchBox from '../SearchBox/SearchBox';
@@ -25,8 +25,7 @@ function App() {
     [page, debouncedSearch]
   );
 
-  // ✔ v5: використовуємо placeholderData: keepPreviousData
-  const { data, isPending, isError, error } = useQuery<FetchNotesResponse, Error>({
+ const { data, isPending, isError, error } = useQuery<FetchNotesResponse, Error>({
     queryKey,
     queryFn: () => fetchNotes({ page, perPage: PER_PAGE, search: debouncedSearch }),
     placeholderData: keepPreviousData,

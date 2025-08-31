@@ -24,13 +24,13 @@ export interface CreateNotePayload {
 }
 
 export interface FetchNotesParams {
-  page?: number;     // 1-based
+  page?: number;     
   perPage?: number;
   search?: string;
 }
 
 export interface FetchNotesResponse {
-  items: Note[];     // <-- важливо: items, а не notes
+  items: Note[];    
   page: number;
   perPage: number;
   totalItems: number;
@@ -40,19 +40,27 @@ export interface FetchNotesResponse {
 export const fetchNotes = async (params: FetchNotesParams): Promise<FetchNotesResponse> => {
   const { page = 1, perPage = 12, search } = params;
 
-  // не передавати search, якщо він порожній/пробіли
-  const cleanedParams: Record<string, unknown> = { page, perPage };
+const cleanedParams: Record<string, unknown> = { page, perPage };
   if (typeof search === 'string' && search.trim()) {
     cleanedParams.search = search.trim();
   }
 
-  // бекенд може вертати items або notes
   type RawBase = { page: number; perPage: number; totalItems: number; totalPages: number };
-  type RawResponse = RawBase & ({ items: Note[] } | { notes: Note[] });
+  type RawItems = RawBase & { items: Note[] };
+  type RawNotes = RawBase & { notes: Note[] };
+  type RawResults = RawBase & { results: Note[] };
+  type RawResponse = RawItems | RawNotes | RawResults;
 
   const { data } = await api.get<RawResponse>('/notes', { params: cleanedParams });
 
-  const items = 'items' in data ? data.items : (data as any).notes;
+  let items: Note[] = [];
+  if ('items' in data) {
+    items = data.items;
+  } else if ('notes' in data) {
+    items = data.notes;
+  } else if ('results' in data) {
+    items = data.results;
+  }
 
   return {
     items,
@@ -62,7 +70,6 @@ export const fetchNotes = async (params: FetchNotesParams): Promise<FetchNotesRe
     totalPages: data.totalPages,
   };
 };
-
 
 export const createNote = async (payload: CreateNotePayload): Promise<Note> => {
   const { data } = await api.post<Note>('/notes', payload);
