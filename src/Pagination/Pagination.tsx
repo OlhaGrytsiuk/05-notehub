@@ -2,50 +2,36 @@ import ReactPaginate, { type ReactPaginateProps } from 'react-paginate';
 import css from './Pagination.module.css';
 
 export interface PaginationProps {
-  /** Загальна кількість сторінок (>= 1) */
-  pageCount: number;
-  /** Поточна сторінка у 0-based індексації (для контролю ззовні) */
-  forcePage?: number;
-  /**
-   * Колбек при зміні сторінки.
-   * На вхід отримає 0-based індекс обраної сторінки.
-   */
-  onPageChange: (selected: number) => void;
+  pageCount: number;           // загальна кількість сторінок
+  currentPage: number;         // поточна сторінка (1-based)
+  onPageChange: (page: number) => void; // повертаємо 1-based
 }
 
-export default function Pagination({
-  pageCount,
-  forcePage = 0,
-  onPageChange,
-}: PaginationProps) {
+function Pagination({ pageCount, currentPage, onPageChange }: PaginationProps) {
   if (pageCount <= 1) return null;
 
-  const handleChange: ReactPaginateProps['onPageChange'] = (e) => {
-    onPageChange(e.selected);
+  const handlePageChange: ReactPaginateProps['onPageChange'] = (e) => {
+    onPageChange(e.selected + 1); // react-paginate -> 0-based
   };
 
   return (
-    <nav className={css.wrapper} aria-label="Pagination Navigation">
+    <nav aria-label="Notes pagination">
       <ReactPaginate
         pageCount={pageCount}
-        forcePage={forcePage}
-        onPageChange={handleChange}
-        previousLabel="<"
-        nextLabel=">"
+        forcePage={Math.max(0, currentPage - 1)}
+        onPageChange={handlePageChange}
+        previousLabel="‹"
+        nextLabel="›"
         breakLabel="…"
-        // Класи зі стилів репозиторію
-        containerClassName={css.container}
-        pageClassName={css.page}
-        activeClassName={css.active}
-        previousClassName={css.prev}
-        nextClassName={css.next}
-        breakClassName={css.break}
-        disabledClassName={css.disabled}
-        // A11y
-        ariaLabelBuilder={(page) => `Go to page ${page}`}
-        previousAriaLabel="Go to previous page"
-        nextAriaLabel="Go to next page"
+        marginPagesDisplayed={1}
+        pageRangeDisplayed={2}
+        // ⚠️ головне — ці два класи збігаються з твоїм CSS-модулем
+        containerClassName={css.pagination} // застосує .pagination до <ul>
+        activeClassName={css.active}        // застосує .active до <li>
+        renderOnZeroPageCount={null}
       />
     </nav>
   );
 }
+
+export default Pagination;

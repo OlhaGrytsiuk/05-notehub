@@ -1,35 +1,41 @@
-import { useEffect } from 'react';
+import { type PropsWithChildren, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import css from './Modal.module.css';
 
-export interface ModalProps {
-  children: React.ReactNode;
+export interface ModalProps extends PropsWithChildren {
+  isOpen: boolean;
   onClose: () => void;
 }
 
-const modalRoot = document.getElementById('modal-root') as HTMLElement | null;
-
-export default function Modal({ children, onClose }: ModalProps) {
-  // Закриття по Escape
+function Modal({ isOpen, onClose, children }: ModalProps) {
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+    if (!isOpen) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
 
-  // Клік по бекдропу
-  const handleBackdropClick: React.MouseEventHandler<HTMLDivElement> = (e) => {
-    if (e.target === e.currentTarget) onClose();
-  };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, onClose]);
 
-  if (!modalRoot) return null; // на випадок, якщо немає контейнера
+  if (!isOpen) return null;
 
-  return createPortal(
-    <div className={css.backdrop} role="dialog" aria-modal="true" onClick={handleBackdropClick}>
-      <div className={css.modal}>{children}</div>
-    </div>,
-    modalRoot
+  const content = (
+    <div className={css.backdrop} role="dialog" aria-modal="true" onClick={onClose}>
+      <div
+        className={css.modal}
+        onClick={(e: React.MouseEvent<HTMLDivElement>) => e.stopPropagation()}
+      >
+        {children}
+      </div>
+    </div>
   );
+
+  const root = document.getElementById('modal-root');
+  return root ? createPortal(content, root) : createPortal(content, document.body);
 }
+
+export default Modal;

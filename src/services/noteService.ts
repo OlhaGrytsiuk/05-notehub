@@ -1,163 +1,75 @@
-// src/services/noteService.ts
-import axios, { AxiosError, type AxiosResponse } from 'axios';
+
+import axios, { type AxiosInstance } from 'axios';
+
 import type { Note, NoteTag } from '../types/note';
 
-// --------- База API ---------
-const baseURL = 'https://notehub-public.goit.study/api';
+const API_URL = 'https://notehub-public.goit.study/api';
+const TOKEN = import.meta.env.VITE_NOTEHUB_TOKEN as string | undefined;
 
-// Один інстанс axios для всіх запитів
-const api = axios.create({ baseURL });
+if (!TOKEN) {
+  throw new Error('VITE_NOTEHUB_TOKEN is missing. Add it to your environment variables.');
+}
 
-// Підставляємо токен у кожен запит
-api.interceptors.request.use((config) => {
-  const token = import.meta.env.VITE_NOTEHUB_TOKEN as string | undefined;
-  if (token) {
-    config.headers = config.headers ?? {};
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
+const api: AxiosInstance = axios.create({
+  baseURL: API_URL,
+  headers: {
+    Authorization: `Bearer ${TOKEN}`,
+  },
 });
 
-// (опційно) лог помилок у DEV
-api.interceptors.response.use(
-  (r) => r,
-  (err) => {
-    if (import.meta.env.DEV) {
-    
-      console.error('[HTTP ERROR]', {
-        url: err.config?.baseURL + (err.config?.url ?? ''),
-        params: err.config?.params,
-        status: err.response?.status,
-        data: err.response?.data,
-      });
-    }
-    return Promise.reject(err);
-  }
-);
-
-// --------- Типи відповідей/параметрів ---------
-
-export interface FetchNotesParams {
-  page?: number;    // 1-based
-  perPage?: number;
-  search?: string;
-}
-
-export interface FetchNotesResponse {
-  page: number;
-  perPage: number;
-  totalPages: number;
-  totalItems: number;
-  results: Note[];
-}
-
-export interface CreateNoteParams {
+export interface CreateNotePayload {
   title: string;
   content: string;
   tag: NoteTag;
 }
 
-export interface DeleteNoteResponse {
-  deleted: boolean;
-  note: Note;
+export interface FetchNotesParams {
+  page?: number;     // 1-based
+  perPage?: number;
+  search?: string;
 }
 
-// Сирий тип елемента від API (може містити _id або id)
-type ApiNote = Partial<
-  Record<'id' | '_id' | 'title' | 'content' | 'tag' | 'createdAt' | 'updatedAt', unknown>
->;
-
-// Деякі ендпоїнти можуть вертати { items: ApiNote[] } замість { results: ApiNote[] }
-type RawFetchNotesResponse =
-  | (Omit<FetchNotesResponse, 'results'> & { results: ApiNote[] })
-  | (Omit<FetchNotesResponse, 'results'> & { items: ApiNote[] });
-
-function hasItemsField(
-  data: RawFetchNotesResponse
-): data is Omit<FetchNotesResponse, 'results'> & { items: ApiNote[] } {
-  return Object.prototype.hasOwnProperty.call(data, 'items');
+export interface FetchNotesResponse {
+  items: Note[];     // <-- важливо: items, а не notes
+  page: number;
+  perPage: number;
+  totalItems: number;
+  totalPages: number;
 }
 
-// --------- Нормалізація даних ---------
+export const fetchNotes = async (params: FetchNotesParams): Promise<FetchNotesResponse> => {
+  const { page = 1, perPage = 12, search } = params;
 
-function normalizeNotes(list: ApiNote[]): Note[] {
-  return list.map((n) => {
-    const id =
-      (typeof n.id === 'string' && n.id) ||
-      (typeof n._id === 'string' && n._id) ||
-      '';
-    const title = typeof n.title === 'string' ? n.title : '';
-    const content = typeof n.content === 'string' ? n.content : '';
-    const tag = (typeof n.tag === 'string' ? n.tag : 'Todo') as Note['tag'];
-    const createdAt = typeof n.createdAt === 'string' ? n.createdAt : '';
-    const updatedAt = typeof n.updatedAt === 'string' ? n.updatedAt : '';
-    return { id, title, content, tag, createdAt, updatedAt };
-  });
-}
+  // не передавати search, якщо він порожній/пробіли
+  const cleanedParams: Record<string, unknown> = { page, perPage };
+  if (typeof search === 'string' && search.trim()) {
+    cleanedParams.search = search.trim();
+  }
 
-// --------- Функції ---------
+  // бекенд може вертати items або notes
+  type RawBase = { page: number; perPage: number; totalItems: number; totalPages: number };
+  type RawResponse = RawBase & ({ items: Note[] } | { notes: Note[] });
 
-/**
- * Отримати список нотаток (пагінація + пошук).
- */
-export async function fetchNotes(
-  { page = 1, perPage = 12, search }: FetchNotesParams
-): Promise<FetchNotesResponse> {
-  const safePage = Number.isFinite(page) && page >= 1 ? page : 1;
-  const safePerPage = Number.isFinite(perPage) && perPage > 0 ? perPage : 12;
+  const { data } = await api.get<RawResponse>('/notes', { params: cleanedParams });
 
-  const params: Record<string, number | string> = {
-    page: safePage,
-    perPage: safePerPage,
+  const items = 'items' in data ? data.items : (data as any).notes;
+
+  return {
+    items,
+    page: data.page,
+    perPage: data.perPage,
+    totalItems: data.totalItems,
+    totalPages: data.totalPages,
   };
+};
 
-  const trimmed = typeof search === 'string' ? search.trim() : '';
-  if (trimmed.length > 0) {
-    params.search = trimmed;
-  }
 
-  try {
-    const { data }: AxiosResponse<RawFetchNotesResponse> = await api.get('/notes', { params });
+export const createNote = async (payload: CreateNotePayload): Promise<Note> => {
+  const { data } = await api.post<Note>('/notes', payload);
+  return data;
+};
 
-    if (hasItemsField(data)) {
-      const { items, ...rest } = data;
-      return { ...(rest as Omit<FetchNotesResponse, 'results'>), results: normalizeNotes(items) };
-    }
-
-    const { results, ...rest } = data as Omit<FetchNotesResponse, 'results'> & { results: ApiNote[] };
-    return { ...(rest as Omit<FetchNotesResponse, 'results'>), results: normalizeNotes(results) };
-  } catch (err) {
-    const e = err as AxiosError<{ message?: string }>;
-    throw new Error(e.response?.data?.message || e.message || 'Failed to fetch notes');
-  }
-}
-
-/**
- * Створити нову нотатку.
- */
-export async function createNote(payload: CreateNoteParams): Promise<Note> {
-  try {
-    const { data }: AxiosResponse<ApiNote> = await api.post('/notes', payload);
-    const [normalized] = normalizeNotes([data]);
-    return normalized;
-  } catch (err) {
-    const e = err as AxiosError<{ message?: string }>;
-    throw new Error(e.response?.data?.message || e.message || 'Failed to create note');
-  }
-}
-
-/**
- * Видалити нотатку за id.
- */
-export async function deleteNote(id: string): Promise<DeleteNoteResponse> {
-  try {
-    const { data }: AxiosResponse<{ deleted: boolean; note: ApiNote }> = await api.delete(
-      `/notes/${id}`
-    );
-    const [normalized] = normalizeNotes([data.note]);
-    return { deleted: data.deleted, note: normalized };
-  } catch (err) {
-    const e = err as AxiosError<{ message?: string }>;
-    throw new Error(e.response?.data?.message || e.message || 'Failed to delete note');
-  }
-}
+export const deleteNote = async (id: string): Promise<Note> => {
+  const { data } = await api.delete<Note>(`/notes/${id}`);
+  return data;
+};
