@@ -8,18 +8,25 @@ export interface ModalProps extends PropsWithChildren {
 }
 
 function Modal({ isOpen, onClose, children }: ModalProps) {
+
   useEffect(() => {
     if (!isOpen) return;
-
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
+      if (e.key === 'Escape') onClose();
     };
-
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [isOpen, onClose]);
+
+  
+  useEffect(() => {
+    if (!isOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 

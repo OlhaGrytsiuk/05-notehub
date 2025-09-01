@@ -1,5 +1,7 @@
-import { Formik, Form } from 'formik';
+import { Formik, Form, ErrorMessage as FormikErrorMessage } from 'formik';
 import * as Yup from 'yup';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { createNote } from '../../services/noteService';
 import type { NoteTag } from '../../types/note';
 import type { CreateNotePayload } from '../../services/noteService';
 import css from './NoteForm.module.css';
@@ -7,9 +9,7 @@ import css from './NoteForm.module.css';
 const TAGS: NoteTag[] = ['Todo', 'Work', 'Personal', 'Meeting', 'Shopping'];
 
 export interface NoteFormProps {
-  onSubmit: (values: CreateNotePayload) => void | Promise<void>;
-  onCancel: () => void;
-  isSubmitting?: boolean;
+  onCancel: () => void; 
 }
 
 const Schema = Yup.object({
@@ -18,17 +18,28 @@ const Schema = Yup.object({
   tag: Yup.mixed<NoteTag>().oneOf(TAGS, 'Invalid tag').required('Tag is required'),
 });
 
-function NoteForm({ onSubmit, onCancel, isSubmitting }: NoteFormProps) {
+function NoteForm({ onCancel }: NoteFormProps) {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: (payload: CreateNotePayload) => createNote(payload),
+    onSuccess: () => {
+     
+      void queryClient.invalidateQueries({ queryKey: ['notes'] });
+      onCancel();
+    },
+  });
+
   return (
     <Formik<CreateNotePayload>
       initialValues={{ title: '', content: '', tag: 'Todo' }}
       validationSchema={Schema}
       onSubmit={async (values, helpers) => {
-        await onSubmit(values);
+        await mutation.mutateAsync(values);
         helpers.resetForm();
       }}
     >
-      {({ values, errors, touched, handleChange, handleBlur, isValid }) => (
+      {({ values, handleChange, handleBlur, isValid }) => (
         <Form className={css.form}>
           <div className={css.formGroup}>
             <label htmlFor="title">Title</label>
@@ -41,9 +52,7 @@ function NoteForm({ onSubmit, onCancel, isSubmitting }: NoteFormProps) {
               onChange={handleChange}
               onBlur={handleBlur}
             />
-            <span data-name="title" className={css.error} aria-live="polite">
-              {touched.title && errors.title}
-            </span>
+            <FormikErrorMessage name="title" component="span" className={css.error} />
           </div>
 
           <div className={css.formGroup}>
@@ -57,9 +66,7 @@ function NoteForm({ onSubmit, onCancel, isSubmitting }: NoteFormProps) {
               onChange={handleChange}
               onBlur={handleBlur}
             />
-            <span data-name="content" className={css.error} aria-live="polite">
-              {touched.content && errors.content}
-            </span>
+            <FormikErrorMessage name="content" component="span" className={css.error} />
           </div>
 
           <div className={css.formGroup}>
@@ -78,17 +85,19 @@ function NoteForm({ onSubmit, onCancel, isSubmitting }: NoteFormProps) {
                 </option>
               ))}
             </select>
-            <span data-name="tag" className={css.error} aria-live="polite">
-              {touched.tag && errors.tag}
-            </span>
+            <FormikErrorMessage name="tag" component="span" className={css.error} />
           </div>
 
           <div className={css.actions}>
             <button type="button" className={css.cancelButton} onClick={onCancel}>
               Cancel
             </button>
-            <button type="submit" className={css.submitButton} disabled={!isValid || !!isSubmitting}>
-              Create note
+            <button
+              type="submit"
+              className={css.submitButton}
+              disabled={!isValid || mutation.isPending}
+            >
+              {mutation.isPending ? 'Creating…' : 'Create note'}
             </button>
           </div>
         </Form>
@@ -98,3 +107,4 @@ function NoteForm({ onSubmit, onCancel, isSubmitting }: NoteFormProps) {
 }
 
 export default NoteForm;
+
